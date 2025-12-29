@@ -197,3 +197,68 @@ h1 {
         opacity: 0.6;
     }
 }
+
+.chord-controls {
+    position: relative;
+    margin: 10px 0;
+}
+
+.chord-selector {
+    position: absolute;
+    background: #2a2a3a;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    z-index: 100;
+    width: 300px;
+    left: 0;
+    top: 100%;
+}
+
+.chord-control-group {
+    margin-bottom: 10px;
+}
+
+.chord-control-group label {
+    display: inline-block;
+    width: 100px;
+    margin-right: 10px;
+    color: #e0e0e0;
+}
+
+.chord-control-group select {
+    padding: 5px;
+    border-radius: 4px;
+    background: #1e1e2e;
+    color: #e0e0e0;
+    border: 1px solid #444;
+}
+
+.chord-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 15px;
+}
+
+.chord-buttons button {
+    padding: 5px 10px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.preview-button {
+    background: #4a90e2;
+    color: white;
+}
+
+.add-button {
+    background: #4caf50;
+    color: white;
+}
+
+.cancel-button {
+    background: #f44336;
+    color: white;
+}

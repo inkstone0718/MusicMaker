@@ -9,6 +9,19 @@ const MAX_MEASURES = 16;
 const BEATS_PER_MEASURE = 4;
 const DEFAULT_BPM = 120;
 
+// Add chord definitions
+const CHORDS = {
+  major: [0, 4, 7],
+  minor: [0, 3, 7],
+  augmented: [0, 4, 8],
+  diminished: [0, 3, 6],
+  'major7': [0, 4, 7, 11],
+  'minor7': [0, 3, 7, 10],
+  'dominant7': [0, 4, 7, 10]
+};
+
+const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+const OCTAVE_RANGE = [1, 2, 3, 4, 5, 6];
 // 定義真實鼓組對應的音高 (對應高品質 Sampler 樣本)
 const DRUM_MAPPING = [
   { label: 'Open Hat', note: 'F#', octave: 3 },
@@ -85,6 +98,12 @@ type AllTracks = { [key in InstrumentType]: TrackData };
 type PlaybackType = 'all' | 'current' | null;
 
 const App: React.FC = () => {
+  // Add these state variables at the top of your component
+  const [showChordSelector, setShowChordSelector] = useState(false);
+  const [selectedChord, setSelectedChord] = useState('major');
+  const [selectedRoot, setSelectedRoot] = useState('C');
+  const [selectedOctave, setSelectedOctave] = useState(4);
+  const [chordDuration, setChordDuration] = useState(1);
   const [tracks, setTracks] = useState<AllTracks>(() => {
     const initialTracks: any = {};
     Object.keys(INSTRUMENT_SETTINGS).forEach(key => {
@@ -126,6 +145,8 @@ const App: React.FC = () => {
         synth.volume.value = (setting.options as any).volume || -8;
         newSynths[key] = synth;
       }
+
+      
     });
 
     synths.current = newSynths;
@@ -138,6 +159,58 @@ const App: React.FC = () => {
     };
   }, []);
 
+  // Add these functions to handle chord operations
+  const addChord = () => {
+    if (selectedInstrument === 'drum' || selectedInstrument === 'violin') return;
+
+    const rootIndex = NOTE_NAMES.indexOf(selectedRoot);
+    if (rootIndex === -1) return;
+
+    const chordIntervals = CHORDS[selectedChord as keyof typeof CHORDS] || [];
+    const newNotes = { ...tracks[selectedInstrument] };
+    const startBeat = currentStep;
+    // Each beat is 4 steps in the piano roll (since we have 16th notes)
+    const endStep = Math.min(startBeat + (chordDuration * 4), measures * 16);
+
+    // Add the chord to each step in the duration
+    for (let step = startBeat; step < endStep; step++) {
+      chordIntervals.forEach(interval => {
+        const noteIndex = (rootIndex + interval) % 12;
+        const octaveOffset = Math.floor((rootIndex + interval) / 12);
+        const noteName = NOTE_NAMES[noteIndex];
+        const noteOctave = selectedOctave + octaveOffset;
+
+        if (noteOctave >= 1 && noteOctave <= 6) {
+          const noteId = `${noteName}${noteOctave}-${step}`;
+          newNotes[noteId] = true;
+        }
+      });
+    }
+
+    setTracks(prev => ({
+      ...prev,
+      [selectedInstrument]: newNotes
+    }));
+    setShowChordSelector(false);
+  };
+  const playChordPreview = () => {
+    if (selectedInstrument === 'drum' || selectedInstrument === 'violin') return;
+
+    const rootIndex = NOTE_NAMES.indexOf(selectedRoot);
+    if (rootIndex === -1) return;
+    const chordIntervals = CHORDS[selectedChord as keyof typeof CHORDS] || [];
+    const now = Tone.now();
+    chordIntervals.forEach((interval, i) => {
+      const noteIndex = (rootIndex + interval) % 12;
+      const octaveOffset = Math.floor((rootIndex + interval) / 12);
+      const noteName = NOTE_NAMES[noteIndex];
+      const noteOctave = selectedOctave + octaveOffset;
+      if (noteOctave >= 1 && noteOctave <= 6) {
+        const note = `${noteName}${noteOctave}`;
+        synths.current?.[selectedInstrument]?.triggerAttackRelease(note, '1n', now + (i * 0.05));
+      }
+    });
+  };
   const updateMeasures = (newMeasures: number) => {
     const clampedMeasures = Math.min(Math.max(newMeasures, MIN_MEASURES), MAX_MEASURES);
     setMeasures(clampedMeasures);
@@ -202,6 +275,10 @@ const App: React.FC = () => {
     const totalSteps = measures * 16;
     const currentStepPos = stepPos % totalSteps;
     setCurrentStep(currentStepPos);
+
+
+    
+
 
     if (currentStepPos !== lastPlayedStep.current) {
       lastPlayedStep.current = currentStepPos;
@@ -300,7 +377,81 @@ const App: React.FC = () => {
           <button onClick={() => setTracks(p => ({ ...p, [selectedInstrument]: {} }))} className="clear-btn">Clear</button>
         </div>
       </div>
-
+      {selectedInstrument !== 'drum' && selectedInstrument !== 'violin' && (
+        <div className="chord-controls">
+          <button
+            onClick={() => setShowChordSelector(!showChordSelector)}
+            className="chord-button"
+          >
+            Add Chord
+          </button>
+          {showChordSelector && (
+            <div className="chord-selector">
+              <div className="chord-control-group">
+                <label>Root:</label>
+                <select
+                  value={selectedRoot}
+                  onChange={(e) => setSelectedRoot(e.target.value)}
+                >
+                  {['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'].map(note => (
+                    <option key={note} value={note}>{note}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="chord-control-group">
+                <label>Octave:</label>
+                <select
+                  value={selectedOctave}
+                  onChange={(e) => setSelectedOctave(Number(e.target.value))}
+                >
+                  {OCTAVE_RANGE.map(octave => (
+                    <option key={octave} value={octave}>{octave}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="chord-control-group">
+                <label>Chord Type:</label>
+                <select
+                  value={selectedChord}
+                  onChange={(e) => setSelectedChord(e.target.value)}
+                >
+                  <option value="major">Major</option>
+                  <option value="minor">Minor</option>
+                  <option value="augmented">Augmented</option>
+                  <option value="diminished">Diminished</option>
+                  <option value="major7">Major 7th</option>
+                  <option value="minor7">Minor 7th</option>
+                  <option value="dominant7">Dominant 7th</option>
+                </select>
+              </div>
+              <div className="chord-control-group">
+                <label>Duration (beats):</label>
+                <select
+                  value={chordDuration}
+                  onChange={(e) => setChordDuration(Number(e.target.value))}
+                >
+                  {[1, 2, 3, 4, 6, 8, 12, 16].map(duration => (
+                    <option key={duration} value={duration}>
+                      {duration} {duration === 1 ? 'beat' : 'beats'}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="chord-buttons">
+                <button onClick={playChordPreview} className="preview-button">
+                  Preview
+                </button>
+                <button onClick={addChord} className="add-button">
+                  Add
+                </button>
+                <button onClick={() => setShowChordSelector(false)} className="cancel-button">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
       <div className="piano-roll">
         <div className="piano-roll-header">
           <div className="note-label">Beat</div>
